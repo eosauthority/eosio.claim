@@ -43,15 +43,21 @@ void unregd::regaccount(const bytes& signature, const string& account, const eos
   // Calculate message hash based on current TX block num/prefix
   char* message = (char*)malloc(64);
   sprintf(message, "%u,%u", tapos_block_num(), tapos_block_prefix());
+  const unsigned char* message1 = reinterpret_cast<const unsigned char * >(message);
+   
+  //calculate sha3 hash instead of sha256
+  sha3_ctx *shactx1 = (sha3_ctx *)malloc(sizeof(sha3_ctx));
 
-  checksum256 digest;
-  sha256(message, strlen(message), &digest);
-
+  checksum256 msghash1;
+  rhash_keccak_256_init(shactx1);
+  rhash_keccak_update(shactx1, message1, strlen(message));
+  rhash_keccak_final(shactx1, msghash1.hash);
+  
   // Recover compressed pubkey from signature
   uint8_t* pubkey = (uint8_t*)malloc(64);
   uint8_t* compressed_pubkey = (uint8_t*)malloc(34);
   auto res = recover_key(
-    &digest,
+    &msghash1,
     signature.data(),
     signature.size(),
     (char*)compressed_pubkey,
