@@ -24,7 +24,7 @@ void unregd::add(const ethereum_address& ethereum_address, const asset& balance)
 /**
  * Register an EOS account using the stored information (address/balance) verifying an ETH signature
  */
-void unregd::regaccount(const bytes& signature, const string& account, const eosio::public_key& eos_pubkey) {
+void unregd::regaccount(const bytes& signature, const string& account, const string& eos_pubkey) {
 
   eosio_assert(signature.size() == 66, "Invalid signature");
   eosio_assert(account.size() == 12, "Invalid account length");
@@ -42,20 +42,31 @@ void unregd::regaccount(const bytes& signature, const string& account, const eos
 
   // Calculate message hash based on current TX block num/prefix
   char* message = (char*)malloc(64);
-  sprintf(message, "%u,%u", tapos_block_num(), tapos_block_prefix());
-  const unsigned char* message1 = reinterpret_cast<const unsigned char * >(message);
-   
+  char* nwmsg1 = (char *)malloc(64);
+  const abieos::public_key eos_pubkey_gen = abieos::string_to_public_key(eos_pubkey);
+  sprintf(message, "%u,%ld,%s", tapos_block_num(), tapos_block_prefix(), eos_pubkey.c_str());
+  
+  //Ethereum Signed message prefix and length of signed message
+  sprintf(nwmsg1, "%s%s", "\x19", "Ethereum Signed Message:\n");
+  std::string newmsg = nwmsg1 + std::to_string(strlen(message)) + message;
+
+  const uint8_t* message1 = reinterpret_cast<const uint8_t* >(newmsg.c_str());
+  
   //calculate sha3 hash instead of sha256
   sha3_ctx *shactx1 = (sha3_ctx *)malloc(sizeof(sha3_ctx));
-
   checksum256 msghash1;
   rhash_keccak_256_init(shactx1);
-  rhash_keccak_update(shactx1, message1, strlen(message));
+  rhash_keccak_update(shactx1, message1, newmsg.length());
   rhash_keccak_final(shactx1, msghash1.hash);
-  
+
+  array<char, 33> pubkey_char;
+  copy(eos_pubkey_gen.data.begin(), eos_pubkey_gen.data.end(),
+       pubkey_char.begin());
+
+
   // Recover compressed pubkey from signature
-  uint8_t* pubkey = (uint8_t*)malloc(64);
-  uint8_t* compressed_pubkey = (uint8_t*)malloc(34);
+  uint8_t *pubkey = (uint8_t *)malloc(64);
+  uint8_t *compressed_pubkey = (uint8_t *)malloc(34);
   auto res = recover_key(
     &msghash1,
     signature.data(),
@@ -96,7 +107,9 @@ void unregd::regaccount(const bytes& signature, const string& account, const eos
   auto amount_to_purchase_8kb_of_RAM = buyrambytes(8*1024);
 
   // Build authority with the pubkey passed as parameter
-  auto auth = authority{1,{{eos_pubkey,1}},{},{}};
+  const auto auth = authority{
+      1, {{{(uint8_t)abieos::key_type::k1, pubkey_char}, 1}}, {}, {}
+  };
 
   // Issue to eosio.unregd the necesary EOS to buy 8K of RAM
   INLINE_ACTION_SENDER(call::token, issue)( N(eosio.token), {{N(eosio),N(active)}},

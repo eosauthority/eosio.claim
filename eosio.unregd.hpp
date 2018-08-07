@@ -14,7 +14,7 @@
 #define USE_KECCAK
 #include "sha3/byte_order.c"
 #include "sha3/sha3.c"
-
+#include "abieos_numeric.hpp"
 #define uECC_SUPPORTS_secp160r1 0
 #define uECC_SUPPORTS_secp192r1 0
 #define uECC_SUPPORTS_secp224r1 0
@@ -51,8 +51,8 @@ class unregd : public contract {
 
   // Actions
   void add(const ethereum_address& ethereum_address, const asset& balance);
-  void regaccount(const bytes& signature, const string& account, const eosio::public_key& eos_pubkey);
-
+  void regaccount(const bytes& signature, const string& account, const string& eos_pubkey);
+  void printtapos();
  private:
   static uint8_t hex_char_to_uint(char character) {
     const int x = character;
